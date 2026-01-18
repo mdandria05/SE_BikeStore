@@ -1,5 +1,5 @@
 from database.DB_connect import DBConnect
-
+from model.product import Product as p
 class DAO:
     @staticmethod
     def get_date_range():
@@ -22,3 +22,48 @@ class DAO:
         cursor.close()
         conn.close()
         return first, last
+
+    @staticmethod
+    def get_category():
+        conn = DBConnect.get_connection()
+
+        results = []
+
+        cursor = conn.cursor(dictionary=True)
+        query = """ SELECT * FROM `category` """
+        cursor.execute(query)
+
+        for row in cursor:
+            results.append(row)
+
+        cursor.close()
+        conn.close()
+        return results
+
+    @staticmethod
+    def get_products(start_date, end_date, category):
+        conn = DBConnect.get_connection()
+
+        results = []
+
+        cursor = conn.cursor(dictionary=True)
+        query = """SELECT p.id, p.product_name, orders.quantity
+                    FROM 
+                        product as p   
+                    LEFT JOIN (SELECT oi.product_id, SUM(oi.quantity) as quantity
+                               FROM `order` as o, 
+                                    order_item as oi
+                               WHERE oi.order_id = o.id AND o.order_date BETWEEN %s AND %s 
+                               GROUP BY oi.product_id) as orders
+                        ON p.id = orders.product_id
+                    WHERE p.category_id = %s
+                    GROUP BY p.id;"""
+        cursor.execute(query, (start_date, end_date, category))
+
+        for row in cursor:
+            results.append(p(**row))
+
+        cursor.close()
+        conn.close()
+        return results
+
